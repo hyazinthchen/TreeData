@@ -1,27 +1,32 @@
+import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Map;
 
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 
 public class Main {
     public static void main(String[] args) throws IOException {
-        cleanGehölze();
-        cleanWeitereBäume();
-        joinAllTrees();
+        //cleanTreesFromOpenData();
+        //cleanTreesFromOpenStreetMaps();
+        //joinAllTrees();
+        //getAllSpecies();
+        convertToJson(addSpeciesId(), "TreesWithSpeciesId.json");
     }
 
     private static void joinAllTrees() throws IOException {
         List<Tree> treeList = new ArrayList<>();
-        treeList.addAll(generateTreeListFromGehölze(getJsonFeatures("gehölze.json")));
-        treeList.addAll(generateTreeListFromWeitereBäume(getJsonFeatures("weitere_bäume.json")));
+        treeList.addAll(generateTreeListFromOpenData(getJsonFeatures("TreesOpenData.json")));
+        treeList.addAll(generateTreeListFromOpenStreetMaps(getJsonFeatures("TreesOpenStreetMaps.json")));
         List<Tree> orderedTreeList = rewriteIDs(treeList);
-        convertToJson(orderedTreeList, "all_trees.json");
+        convertToJson(orderedTreeList, "AllTrees.json");
     }
 
     private static List<Tree> rewriteIDs(List<Tree> treeList) {
@@ -33,14 +38,14 @@ public class Main {
         return treeList;
     }
 
-    private static void cleanGehölze() throws IOException {
-        JsonNode features = getJsonFeatures("gehölze.json");
-        convertToJson(generateTreeListFromGehölze(features), "gehölze.json");
+    private static void cleanTreesFromOpenData() throws IOException {
+        JsonNode features = getJsonFeatures("TreesOpenData.json");
+        convertToJson(generateTreeListFromOpenData(features), "TreesOpenData.json");
     }
 
-    private static void cleanWeitereBäume() throws IOException {
-        JsonNode features = getJsonFeatures("weitere_bäume.json");
-        convertToJson(generateTreeListFromWeitereBäume(features), "weitere_bäume.json");
+    private static void cleanTreesFromOpenStreetMaps() throws IOException {
+        JsonNode features = getJsonFeatures("TreesOpenStreetMaps.json");
+        convertToJson(generateTreeListFromOpenStreetMaps(features), "TreesOpenStreetMaps.json");
     }
 
     private static JsonNode getJsonFeatures(String path) throws IOException {
@@ -53,7 +58,7 @@ public class Main {
         return features;
     }
 
-    private static List<Tree> generateTreeListFromGehölze(JsonNode features) {
+    private static List<Tree> generateTreeListFromOpenData(JsonNode features) {
         List<Tree> treeList = new ArrayList<>();
         int index = 1;
         for (JsonNode feature : features) {
@@ -90,7 +95,7 @@ public class Main {
         return treeList;
     }
 
-    private static List<Tree> generateTreeListFromWeitereBäume(JsonNode features) {
+    private static List<Tree> generateTreeListFromOpenStreetMaps(JsonNode features) {
         List<Tree> treeList = new ArrayList<>();
         int index = 1;
         for (JsonNode feature : features) {
@@ -132,5 +137,53 @@ public class Main {
     private static void convertToJson(List<Tree> treeList, String path) throws IOException {
         ObjectMapper mapper = new ObjectMapper();
         mapper.writeValue(Paths.get(path).toFile(), treeList);
+    }
+
+    private static void getAllSpecies() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        InputStream inputStream = Main.class.getClassLoader().getResourceAsStream("CleanTrees.json");
+        JsonNode rootNode = objectMapper.readTree(inputStream);
+        List<String> speciesList = new ArrayList<>();
+
+        for (JsonNode treeNode : rootNode) {
+            ObjectNode object = (ObjectNode) treeNode;
+            if (!speciesList.contains(object.get("species").textValue())) {
+                speciesList.add(object.get("species").textValue());
+            }
+        }
+        FileWriter writer = new FileWriter("species.txt");
+        for(String str : speciesList) {
+            writer.write(str + System.lineSeparator());
+        }
+        writer.close();
+    }
+
+    private static List<Tree> addSpeciesId() throws IOException {
+        ObjectMapper objectMapper = new ObjectMapper();
+        InputStream inputStream = Main.class.getClassLoader().getResourceAsStream("CleanTrees.json");
+        JsonNode rootNode = objectMapper.readTree(inputStream);
+
+        List<Tree> treeList = new ArrayList<>();
+
+        for (JsonNode treeNode : rootNode) {
+            ObjectNode object = (ObjectNode) treeNode;
+            Tree tree = new Tree();
+
+            tree.setId(object.get("id").intValue());
+            tree.setSpecies(object.get("species").textValue());
+            double longitude = object.get("coordinates").get("longitude").doubleValue();
+            double latitude = object.get("coordinates").get("latitude").doubleValue();
+            tree.setCoordinates(new Point(longitude, latitude));
+            tree.setCircumference(object.get("circumference").intValue());
+
+            SpeciesStorage speciesStorage = new SpeciesStorage();
+            for (Map.Entry<Integer, String> entry : speciesStorage.species.entrySet()) {
+                if(entry.getValue().equals(tree.getSpecies())){
+                    tree.setSpeciesId(entry.getKey());
+                }
+            }
+            treeList.add(tree);
+        }
+        return treeList;
     }
 }

@@ -1,6 +1,7 @@
 public class Tree {
 
     private int id;
+    private int speciesId;
     private String species;
     private int circumference;
     private Point coordinates;
@@ -36,4 +37,8 @@ public class Tree {
     public void setCoordinates(Point coordinates) {
         this.coordinates = coordinates;
     }
+
+    public int getSpeciesId() { return speciesId; }
+
+    public void setSpeciesId(int speciesId) { this.speciesId = speciesId; }
 }
